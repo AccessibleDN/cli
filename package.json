@@ -1,0 +1,35 @@
+{
+  "name": "@accessibledn-pack/cli",
+  "version": "0.0.1",
+  "description": "A CLI Pack for AccessibleDN to generate, clone, start and manage AccessibleDN",
+  "main": "bin/index.js",
+  "bin": {
+    "accessibledn": "./bin/index.js"
+  },
+  "repository": "https://github.com/accessibledn/cli",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "build": "yarn format && tsc",
+    "format": "yarn prettier --write src",
+    "prod": "yarn build && yarn tsc --project tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/cli-color": "^2.0.6",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.1",
+    "prettier": "^3.4.2",
+    "tsc": "^2.0.4",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.1.0",
+    "cli-color": "^2.0.4",
+    "cliui": "^8.0.1",
+    "commander": "^12.1.0",
+    "consola": "^3.2.3",
+    "js-yaml": "^4.1.0",
+    "ms": "^2.1.3",
+    "simple-git": "^3.27.0"
+  }
+}
