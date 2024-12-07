@@ -1,4 +1,4 @@
 export abstract class GenerationPack {
   abstract readonly name: string;
-  abstract generate(): Promise<void>;
+  abstract generate(...args: any[]): Promise<void>;
 }

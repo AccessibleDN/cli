@@ -4,11 +4,15 @@ import consola from "consola";
 import cliui from "cliui";
 import { input, confirm } from "@inquirer/prompts";
 import { execSync } from "child_process";
+import { Listr } from "listr2";
+import { Configuration, PackagerType } from "../../configuration/Configuration";
+import clc from "cli-color";
+import path from "path";
 
 export default class DefaultGenerationPack extends GenerationPack {
   readonly name = "default";
 
-  private readonly ui = cliui({ width: 80 });
+  private readonly ui = cliui({ width: 100 }); // Wider UI for better readability
   private git: SimpleGit | null = null;
 
   private checkGitInstalled(): boolean {
@@ -26,119 +30,162 @@ export default class DefaultGenerationPack extends GenerationPack {
     }
   }
 
-  async generate(): Promise<void> {
-    // Initialize UI early to avoid layout shifts
-    this.displayWelcomeMessage();
-
-    // Get config in parallel with git check
-    const [projectConfig, isGitInstalled] = await Promise.all([
-      this.getProjectConfiguration(),
-      Promise.resolve(this.checkGitInstalled()),
-    ]);
-
-    if (projectConfig.shouldInitGit && !isGitInstalled) {
-      consola.error(
-        "Git is not installed! Please install Git to continue with repository setup.",
-      );
-      return;
-    }
-
-    await this.initializeProject({
-      ...projectConfig,
-      shouldInitGit: projectConfig.shouldInitGit && isGitInstalled,
-    });
-
-    this.displaySuccessMessage();
-  }
-
-  private displayWelcomeMessage(): void {
-    this.ui.div({
-      text: "🔥 Let's create something awesome with AccessibleDN!",
-      padding: [1, 0, 1, 0],
-    });
-  }
-
-  private async getProjectConfiguration() {
-    // Run prompts in parallel for faster response
-    const [projectName, shouldInitGit] = await Promise.all([
-      input({
-        message: "Drop a cool name for your project:",
-        default: "accessible-dn-project",
-      }),
-      confirm({
-        message: "Want to set up Git? (It's lit! 🔥)",
-        default: true,
-      }),
-    ]);
-
-    return { projectName, shouldInitGit };
-  }
-
-  private async initializeProject({
-    projectName,
-    shouldInitGit,
-  }: {
-    projectName: string;
-    shouldInitGit: boolean;
-  }): Promise<void> {
-    if (!shouldInitGit) {
-      consola.info("No Git? No prob! Skipping that part... 👌");
-      return;
-    }
-
-    consola.info("Setting up your Git repo... 🚀");
-
+  private async setupGitRepository(projectName: string): Promise<void> {
     try {
       this.initGit();
+      await this.git!.init();
+      consola.info(clc.cyan("🔄 Cloning repository..."));
       await this.git!.clone(
         "https://github.com/accessibledn/accessibledn.git",
         projectName,
-        ["--depth", "1"], // Shallow clone for faster download
+        ["--depth", "1"],
       );
     } catch (error) {
-      consola.error("Oof! Couldn't set up the repo:", error);
+      consola.error(clc.red("💥 Failed to initialize Git repository:"), error);
       throw error;
     }
   }
 
-  private displaySuccessMessage(): void {
-    // Prepare all UI elements at once to reduce iterations
+  private async configureProject(projectName: string): Promise<void> {
+    Configuration.initialize(path.join(process.cwd(), projectName)).set({
+      packager: PackagerType.YARN,
+    });
+  }
+
+  async generate(...args: any[]): Promise<void> {
+    try {
+      // Initial setup and validation
+      this.displayWelcomeMessage();
+      const gitInstalled = this.checkGitInstalled();
+      const projectConfig = await this.getProjectConfiguration();
+
+      if (projectConfig.shouldInitGit && !gitInstalled) {
+        consola.error(
+          clc.red(
+            "⚠️  Git is not installed! Please install Git to continue with repository setup.",
+          ),
+        );
+        return;
+      }
+
+      // Define and run tasks with better styling
+      const tasks = new Listr(
+        [
+          {
+            title: clc.cyan("🏗️  Setting up project structure"),
+            task: () => this.initializeProject(projectConfig),
+          },
+          {
+            title: clc.cyan("⚙️  Configuring project settings"),
+            task: async () => {
+              await this.configureProject(projectConfig.projectName);
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            },
+          },
+        ],
+        {
+          concurrent: false,
+        },
+      );
+
+      await tasks.run();
+      this.displaySuccessMessage(projectConfig.projectName);
+    } catch (error) {
+      consola.error(clc.red("💥 Project initialization failed:"), error);
+      throw error;
+    }
+  }
+
+  private displayWelcomeMessage(): void {
+    this.ui.div({
+      text: clc.bold.cyan(
+        "🚀 Welcome to AccessibleDN - Let's Build Something Amazing!",
+      ),
+      padding: [2, 0, 2, 0],
+    });
+
+    this.ui.div({
+      text: clc.white(
+        "We're excited to help you create an awesome accessible project.",
+      ),
+      padding: [0, 0, 1, 2],
+    });
+
+    console.log(this.ui.toString());
+  }
+
+  private async getProjectConfiguration() {
+    const projectName = await input({
+      message: clc.cyan("📝 What would you like to name your project?"),
+      default: "accessible-dn-project",
+    });
+
+    const shouldInitGit = await confirm({
+      message: clc.cyan(
+        "🔄 Would you like to initialize Git for version control?",
+      ),
+      default: true,
+    });
+
+    return { projectName, shouldInitGit };
+  }
+
+  private async initializeProject(config: {
+    projectName: string;
+    shouldInitGit: boolean;
+  }): Promise<void> {
+    const { projectName, shouldInitGit } = config;
+
+    if (!shouldInitGit) {
+      consola.info(clc.yellow("ℹ️  Skipping Git initialization as requested"));
+      return;
+    }
+
+    await this.setupGitRepository(projectName);
+  }
+
+  private displaySuccessMessage(projectName: string): void {
     const messages = [
       {
-        text: "✨ Project initialized successfully! Let's build something amazing!",
-        padding: [1, 0, 1, 0],
+        text: clc.bold.green("✨ Success! Your project is ready to rock! ✨"),
+        padding: [2, 0, 1, 0],
       },
       {
-        text: "🚀 Ready to Rock? Here's Your Setup Guide:",
-        padding: [1, 0, 0, 2],
+        text: clc.cyan("🎯 Next Steps Guide:"),
+        padding: [1, 0, 1, 2],
       },
       {
-        text: "📂 First up, jump into your project folder:",
-        padding: [1, 0, 0, 2],
+        text: clc.white("1️⃣  Navigate to your project directory:"),
+        padding: [1, 0, 0, 4],
       },
       {
-        text: "   cd <project-name>",
-        padding: [0, 0, 0, 2],
+        text: clc.yellow(`   $ cd ${projectName}`),
+        padding: [0, 0, 1, 6],
       },
       {
-        text: "📦 Time to grab those awesome dependencies:",
-        padding: [1, 0, 0, 2],
+        text: clc.white("2️⃣  Install dependencies:"),
+        padding: [0, 0, 0, 4],
       },
       {
-        text: "   yarn install",
-        padding: [0, 0, 0, 2],
+        text: clc.yellow("   $ yarn install"),
+        padding: [0, 0, 1, 6],
       },
       {
-        text: "🔥 Fire up your development environment:",
-        padding: [1, 0, 0, 2],
+        text: clc.white("3️⃣  Start development server:"),
+        padding: [0, 0, 0, 4],
       },
       {
-        text: "   yarn dev",
-        padding: [0, 0, 1, 2],
+        text: clc.yellow("   $ yarn dev"),
+        padding: [0, 0, 1, 6],
+      },
+      {
+        text: clc.cyan(
+          "🌟 Happy coding! If you need help, check out our docs or reach out to the community.",
+        ),
+        padding: [1, 0, 2, 2],
       },
     ];
 
-    // Single batch update for UI
     messages.forEach((msg) => this.ui.div(msg));
     console.log(this.ui.toString());
   }

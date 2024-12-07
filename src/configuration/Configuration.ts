@@ -17,9 +17,11 @@ export class Configuration {
   private static readonly CONFIG_FILE = ".accessibledrc.yml";
   private static instance: Configuration;
   private config: ConfigurationOptions;
+  private basedir: string;
 
-  private constructor() {
+  private constructor(basedir?: string) {
     this.config = {};
+    this.basedir = basedir || process.cwd();
   }
 
   public static getInstance(): Configuration | undefined {
@@ -29,13 +31,14 @@ export class Configuration {
     return Configuration.instance;
   }
 
-  public static initialize(): Configuration {
+  public static initialize(basedir?: string): Configuration {
     let config = Configuration.getInstance();
     if (!config) {
-      config = new Configuration();
+      config = new Configuration(basedir);
+      Configuration.instance = config;
     }
 
-    const configPath = join(process.cwd(), this.CONFIG_FILE);
+    const configPath = join(config.basedir, this.CONFIG_FILE);
 
     try {
       const fileContents = readFileSync(configPath, "utf8");
@@ -48,8 +51,8 @@ export class Configuration {
     return config;
   }
 
-  public save(): void {
-    const configPath = join(process.cwd(), Configuration.CONFIG_FILE);
+  public save(): Configuration {
+    const configPath = join(this.basedir, Configuration.CONFIG_FILE);
 
     try {
       if (Object.keys(this.config).length === 0) {
@@ -62,6 +65,7 @@ export class Configuration {
       consola.error(clc.red("💥 Failed to save configuration:"), error);
       throw error;
     }
+    return this;
   }
 
   public get<K extends keyof ConfigurationOptions>(
@@ -70,21 +74,24 @@ export class Configuration {
     return key ? this.config[key] : this.config;
   }
 
-  public set(options: Partial<ConfigurationOptions>): void {
+  public set(options: Partial<ConfigurationOptions>): Configuration {
     this.config = {
       ...this.config,
       ...options,
     };
     this.save();
+    return this;
   }
 
-  public delete<K extends keyof ConfigurationOptions>(key: K): void {
+  public delete<K extends keyof ConfigurationOptions>(key: K): Configuration {
     delete this.config[key];
     this.save();
+    return this;
   }
 
-  public clear(): void {
+  public clear(): Configuration {
     this.config = {};
     this.save();
+    return this;
   }
 }

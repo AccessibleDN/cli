@@ -1,6 +1,6 @@
 {
   "name": "@accessibledn-pack/cli",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A CLI Pack for AccessibleDN to generate, clone, start and manage AccessibleDN",
   "main": "bin/index.js",
   "bin": {
@@ -9,10 +9,14 @@
   "repository": "https://github.com/accessibledn/cli",
   "license": "MIT",
   "private": false,
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
   "scripts": {
     "build": "yarn format && tsc",
     "format": "yarn prettier --write src",
-    "prod": "yarn build && yarn tsc --project tsconfig.json"
+    "prod": "yarn build && yarn tsc --project tsconfig.json && npm version patch && npm publish"
   },
   "devDependencies": {
     "@types/cli-color": "^2.0.6",
@@ -29,6 +33,7 @@
     "commander": "^12.1.0",
     "consola": "^3.2.3",
     "js-yaml": "^4.1.0",
+    "listr2": "^8.2.5",
     "ms": "^2.1.3",
     "simple-git": "^3.27.0"
   }
